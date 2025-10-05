@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таймер для заданий</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            gap: 20px;
+        }
+
+        .timer-card {
+            background: white;
+            border-radius: 24px;
+            padding: 30px 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .timer-card.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            border-radius: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .timer-card.fullscreen h1,
+        .timer-card.fullscreen .input-group,
+        .timer-card.fullscreen .time-inputs {
+            display: none;
+        }
+
+        .timer-card.fullscreen .task-title {
+            color: white;
+            font-size: 3em;
+            margin-bottom: 40px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .timer-card.fullscreen .display-time {
+            font-size: 12em;
+            color: white;
+            text-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            margin: 0;
+        }
+
+        .timer-card.fullscreen .display-time.warning {
+            color: #ffeb3b;
+        }
+
+        .timer-card.fullscreen .display-time.danger {
+            color: #ff5252;
+        }
+
+        .timer-card.fullscreen .button-group {
+            margin-top: 60px;
+        }
+
+        .timer-card.fullscreen button {
+            font-size: 20px;
+            padding: 20px 40px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .exit-fullscreen,
+        .browser-fullscreen-btn {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s;
+            display: none;
+            width: 50px;
+            height: 50px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .exit-fullscreen {
+            top: 30px;
+            right: 30px;
+        }
+
+        .browser-fullscreen-btn {
+            top: 30px;
+            left: 30px;
+        }
+
+        .timer-card.fullscreen .exit-fullscreen,
+        .timer-card.fullscreen .browser-fullscreen-btn {
+            display: flex;
+        }
+
+        .exit-fullscreen:hover,
+        .browser-fullscreen-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            color: #333;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .autocomplete-container {
+            position: relative;
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .autocomplete-list.active {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        .autocomplete-item:hover {
+            background-color: #f5f5ff;
+        }
+
+        .autocomplete-item.active {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .time-picker {
+            background: #f8f9ff;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .time-picker:focus-within {
+            border-color: #667eea;
+        }
+
+        .time-picker-label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .time-picker-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .time-picker-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            border: none;
+            background: #667eea;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .time-picker-btn:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .time-picker-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .time-picker-value {
+            font-size: 40px;
+            font-weight: bold;
+            color: #667eea;
+            min-width: 70px;
+            text-align: center;
+            cursor: text;
+            padding: 4px 8px;
+            border-radius: 6px;
+            user-select: none;
+        }
+
+        .time-picker-value:hover {
+            background-color: rgba(102, 126, 234, 0.1);
+        }
+
+        .time-picker-input {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            width: 70px;
+            text-align: center;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            padding: 4px 8px;
+            background: white;
+        }
+
+        .time-picker-input:focus {
+            outline: none;
+            border-color: #5568d3;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        input[type="number"] {
+            display: none;
+        }
+
+        .display-time {
+            text-align: center;
+            font-size: 6em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 15px 0;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .display-time.warning {
+            color: #ff9800;
+        }
+
+        .display-time.danger {
+            color: #f44336;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        .task-title {
+            text-align: center;
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 8px;
+            min-height: 30px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-start {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-pause {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-reset {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-start:disabled,
+        .btn-pause:disabled,
+        .btn-reset:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .history-section {
+            background: white;
+            border-radius: 24px;
+            padding: 40px 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            min-height: 400px;
+        }
+
+        .history-section.hidden {
+            display: none;
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .no-history {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .status-completed {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .status-incomplete {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .clear-history {
+            background: #f44336;
+            color: white;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .timer-card {
+                padding: 20px 15px;
+                height: calc(100vh - 20px);
+            }
+
+            .display-time {
+                font-size: 4em;
+            }
+
+            h1 {
+                font-size: 1.4em;
+            }
+
+            .time-picker-btn {
+                width: 22px;
+                height: 22px;
+                font-size: 14px;
+            }
+
+            .time-picker-value,
+            .time-picker-input {
+                font-size: 35px;
+                min-width: 60px;
+                width: 60px;
+            }
+
+            .timer-card.fullscreen .display-time {
+                font-size: 5em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="timer-card" id="timerCard">
+            <button class="browser-fullscreen-btn" id="browserFullscreenBtn" title="Полный экран">⛶</button>
+            <button class="exit-fullscreen" id="exitFullscreenBtn" title="Выход">✕</button>
+            <h1>⏱️ Таймер для заданий</h1>
+            <div class="input-group autocomplete-container">
+                <label for="taskTitle">Название задания:</label>
+                <input type="text" id="taskTitle" placeholder="Введите название задания..." autocomplete="off">
+                <div class="autocomplete-list" id="autocompleteList"></div>
+            </div>
+            <div class="time-inputs-wrapper">
+                <div class="time-inputs">
+                    <div class="time-picker">
+                        <span class="time-picker-label">Минуты</span>
+                        <div class="time-picker-controls">
+                            <button type="button" class="time-picker-btn" id="minusMin">−</button>
+                            <div class="time-picker-value" id="minutesDisplay" tabindex="0">05</div>
+                            <button type="button" class="time-picker-btn" id="plusMin">+</button>
+                        </div>
+                    </div>
+                    <div class="time-picker">
+                        <span class="time-picker-label">Секунды</span>
+                        <div class="time-picker-controls">
+                            <button type="button" class="time-picker-btn" id="minusSec">−</button>
+                            <div class="time-picker-value" id="secondsDisplay" tabindex="0">00</div>
+                            <button type="button" class="time-picker-btn" id="plusSec">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <input type="number" id="minutes" min="0" max="59" value="5">
+            <input type="number" id="seconds" min="0" max="59" value="0">
+            <div class="task-title" id="currentTask"></div>
+            <div class="display-time" id="timeDisplay">05:00</div>
+            <div class="button-group">
+                <button class="btn-start" id="startBtn">Старт</button>
+                <button class="btn-pause" id="pauseBtn" disabled>Пауза</button>
+                <button class="btn-reset" id="resetBtn">Сброс</button>
+            </div>
+        </div>
+        <div class="history-section" id="historySection">
+            <h2>📋 История заданий</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Задание</th>
+                        <th>Время</th>
+                        <th>Дата</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <tr>
+                        <td colspan="4" class="no-history">История пуста</td>
+                    </tr>
+                </tbody>
+            </table>
+            <button class="clear-history" id="clearHistoryBtn">Очистить историю</button>
+        </div>
+    </div>
+    <script>
+        let timeLeft = 300, totalTime = 300, timerInterval = null, isRunning = false, currentTaskTitle = '', history = [], isBrowserFullscreen = false, currentFocus = -1;
+        const get = id => document.getElementById(id);
+        const taskTitleInput = get('taskTitle'), minutesInput = get('minutes'), secondsInput = get('seconds'), timeDisplay = get('timeDisplay');
+        const currentTaskDisplay = get('currentTask'), startBtn = get('startBtn'), pauseBtn = get('pauseBtn'), resetBtn = get('resetBtn');
+        const historyBody = get('historyBody'), clearHistoryBtn = get('clearHistoryBtn'), timerCard = get('timerCard');
+        const exitFullscreenBtn = get('exitFullscreenBtn'), browserFullscreenBtn = get('browserFullscreenBtn'), historySection = get('historySection');
+        const autocompleteList = get('autocompleteList'), minutesDisplay = get('minutesDisplay'), secondsDisplay = get('secondsDisplay');
+        const plusMin = get('plusMin'), minusMin = get('minusMin'), plusSec = get('plusSec'), minusSec = get('minusSec');
+        const popularTasks = ['Слепая печать', 'Тест', 'Опрос', 'Практическая работа', 'Самостоятельная работа', 'Контрольная работа', 'Лабораторная работа', 'Диктант', 'Упражнение', 'Решение задач', 'Работа с текстом', 'Презентация', 'Проект', 'Групповая работа'];
+
+        function updateTimeDisplays() { const m = parseInt(minutesInput.value) || 0, s = parseInt(secondsInput.value) || 0; minutesDisplay.textContent = String(m).padStart(2, '0'); secondsDisplay.textContent = String(s).padStart(2, '0'); }
+        function makeEditable(el, type) {
+            if (isRunning) return; const inp = document.createElement('input'); inp.type = 'text'; inp.className = 'time-picker-input'; inp.value = el.textContent; inp.maxLength = 2; el.parentNode.replaceChild(inp, el); inp.focus(); inp.select();
+            function done() { let v = Math.max(0, Math.min(59, parseInt(inp.value) || 0)); (type === 'minutes' ? minutesInput : secondsInput).value = v; inp.parentNode.replaceChild(el, inp); updateTimeDisplays(); timeLeft = totalTime = (parseInt(minutesInput.value) || 0) * 60 + (parseInt(secondsInput.value) || 0); updateDisplay(); }
+            inp.onblur = done; inp.onkeydown = e => { if (e.key === 'Enter') done(); else if (e.key === 'Escape') inp.parentNode.replaceChild(el, inp); else if (e.key === 'ArrowUp') { e.preventDefault(); inp.value = String(Math.min(59, (parseInt(inp.value) || 0) + 1)).padStart(2, '0'); } else if (e.key === 'ArrowDown') { e.preventDefault(); inp.value = String(Math.max(0, (parseInt(inp.value) || 0) - 1)).padStart(2, '0'); } };
+            inp.oninput = e => e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        }
+        minutesDisplay.onclick = () => makeEditable(minutesDisplay, 'minutes'); secondsDisplay.onclick = () => makeEditable(secondsDisplay, 'seconds');
+        minutesDisplay.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); makeEditable(minutesDisplay, 'minutes'); } };
+        secondsDisplay.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); makeEditable(secondsDisplay, 'seconds'); } };
+
+        plusMin.onclick = () => { if (!isRunning) { let m = Math.min(59, (parseInt(minutesInput.value) || 0) + 1); minutesInput.value = m; updateTimeDisplays(); timeLeft = totalTime = m * 60 + (parseInt(secondsInput.value) || 0); updateDisplay(); } };
+        minusMin.onclick = () => { if (!isRunning) { let m = Math.max(0, (parseInt(minutesInput.value) || 0) - 1); minutesInput.value = m; updateTimeDisplays(); timeLeft = totalTime = m * 60 + (parseInt(secondsInput.value) || 0); updateDisplay(); } };
+        plusSec.onclick = () => { if (!isRunning) { let s = Math.min(59, (parseInt(secondsInput.value) || 0) + 1); secondsInput.value = s; updateTimeDisplays(); timeLeft = totalTime = (parseInt(minutesInput.value) || 0) * 60 + s; updateDisplay(); } };
+        minusSec.onclick = () => { if (!isRunning) { let s = Math.max(0, (parseInt(secondsInput.value) || 0) - 1); secondsInput.value = s; updateTimeDisplays(); timeLeft = totalTime = (parseInt(minutesInput.value) || 0) * 60 + s; updateDisplay(); } };
+
+        updateTimeDisplays();
+        taskTitleInput.onfocus = function () { showAutocomplete(this.value); }; taskTitleInput.oninput = function () { showAutocomplete(this.value); };
+        taskTitleInput.onkeydown = function (e) { const items = autocompleteList.getElementsByClassName('autocomplete-item'); if (e.key === 'ArrowDown') { e.preventDefault(); currentFocus++; addActive(items); } else if (e.key === 'ArrowUp') { e.preventDefault(); currentFocus--; addActive(items); } else if (e.key === 'Enter') { e.preventDefault(); if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click(); else autocompleteList.classList.remove('active'); } else if (e.key === 'Escape') autocompleteList.classList.remove('active'); };
+        function showAutocomplete(v) { autocompleteList.innerHTML = ''; currentFocus = -1; const sv = v.toLowerCase(); let c = 0; popularTasks.forEach(t => { if (t.toLowerCase().includes(sv) || sv === '') { c++; const it = document.createElement('div'); it.className = 'autocomplete-item'; if (sv) { const i = t.toLowerCase().indexOf(sv); if (i !== -1) it.innerHTML = t.substring(0, i) + '<strong>' + t.substring(i, i + sv.length) + '</strong>' + t.substring(i + sv.length); else it.textContent = t; } else it.textContent = t; it.onclick = () => { taskTitleInput.value = t; autocompleteList.classList.remove('active'); }; autocompleteList.appendChild(it); } }); if (c > 0) autocompleteList.classList.add('active'); else autocompleteList.classList.remove('active'); }
+        function addActive(its) { if (!its || !its.length) return; for (let it of its) it.classList.remove('active'); if (currentFocus >= its.length) currentFocus = 0; if (currentFocus < 0) currentFocus = its.length - 1; its[currentFocus].classList.add('active'); its[currentFocus].scrollIntoView({ block: 'nearest' }); }
+        document.onclick = e => { if (e.target !== taskTitleInput) autocompleteList.classList.remove('active'); };
+
+        function formatTime(s) { return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
+        function updateDisplay() { timeDisplay.textContent = formatTime(timeLeft); const p = (timeLeft / totalTime) * 100; timeDisplay.classList.remove('warning', 'danger'); if (p <= 10 && p > 0) timeDisplay.classList.add('danger'); else if (p <= 30) timeDisplay.classList.add('warning'); }
+
+        startBtn.onclick = () => { if (!isRunning) { currentTaskTitle = taskTitleInput.value.trim() || 'Без названия'; currentTaskDisplay.textContent = currentTaskTitle; isRunning = true; startBtn.disabled = true; pauseBtn.disabled = false; taskTitleInput.disabled = true;[plusMin, minusMin, plusSec, minusSec].forEach(b => b.disabled = true); timerCard.classList.add('fullscreen'); historySection.classList.add('hidden'); timerInterval = setInterval(() => { if (timeLeft > 0) { timeLeft--; updateDisplay(); } else { completeTask(true); playSound(); } }, 1000); } };
+        pauseBtn.onclick = () => { if (isRunning) { clearInterval(timerInterval); isRunning = false; startBtn.disabled = false; pauseBtn.disabled = true; startBtn.textContent = 'Продолжить'; } };
+        resetBtn.onclick = () => { if (isRunning || timeLeft !== totalTime) { if (isRunning) completeTask(false); clearInterval(timerInterval); isRunning = false; timeLeft = totalTime = (parseInt(minutesInput.value) || 0) * 60 + (parseInt(secondsInput.value) || 0); updateDisplay(); startBtn.disabled = false; pauseBtn.disabled = true; startBtn.textContent = 'Старт'; taskTitleInput.disabled = false;[plusMin, minusMin, plusSec, minusSec].forEach(b => b.disabled = false); currentTaskDisplay.textContent = ''; timerCard.classList.remove('fullscreen'); historySection.classList.remove('hidden'); } };
+        exitFullscreenBtn.onclick = () => { timerCard.classList.remove('fullscreen'); historySection.classList.remove('hidden'); if (isBrowserFullscreen) exitBrowserFullscreen(); };
+        browserFullscreenBtn.onclick = () => isBrowserFullscreen ? exitBrowserFullscreen() : enterBrowserFullscreen();
+        function enterBrowserFullscreen() { const e = document.documentElement; (e.requestFullscreen || e.webkitRequestFullscreen || e.msRequestFullscreen || e.mozRequestFullScreen).call(e); }
+        function exitBrowserFullscreen() { (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen || document.mozCancelFullScreen).call(document); }
+        ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(e => document.addEventListener(e, () => { isBrowserFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement); }));
+        document.onkeydown = e => { if (e.key === 'F11' && timerCard.classList.contains('fullscreen')) { e.preventDefault(); isBrowserFullscreen ? exitBrowserFullscreen() : enterBrowserFullscreen(); } };
+
+        function completeTask(c) { history.unshift({ title: currentTaskTitle, time: formatTime(totalTime), date: new Date().toLocaleString('ru-RU'), completed: c }); updateHistory(); clearInterval(timerInterval); isRunning = false; startBtn.disabled = false; pauseBtn.disabled = true; startBtn.textContent = 'Старт'; taskTitleInput.disabled = false;[plusMin, minusMin, plusSec, minusSec].forEach(b => b.disabled = false); timerCard.classList.remove('fullscreen'); historySection.classList.remove('hidden'); }
+        function updateHistory() { historyBody.innerHTML = history.length ? history.map(r => `<tr><td>${r.title}</td><td>${r.time}</td><td>${r.date}</td><td class="${r.completed ? 'status-completed' : 'status-incomplete'}">${r.completed ? '✓ Завершено' : '✗ Прервано'}</td></tr>`).join('') : '<tr><td colspan="4" class="no-history">История пуста</td></tr>'; }
+        clearHistoryBtn.onclick = () => { if (confirm('Вы уверены, что хотите очистить всю историю?')) { history = []; updateHistory(); } };
+        function playSound() { const ctx = new (window.AudioContext || window.webkitAudioContext)(), osc = ctx.createOscillator(), gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.frequency.value = 800; osc.type = 'sine'; gain.gain.setValueAtTime(0.3, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5); }
+        updateDisplay();
+    </script>
+</body>
+
+</html>
